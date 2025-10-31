@@ -20,18 +20,27 @@ export default {
 		return new Response(`To test the scheduled handler, ensure you have used the "--test-scheduled" then try running "curl ${url.href}".`);
 	},
 
-	// The scheduled handler is invoked at the interval set in our wrangler.jsonc's
-	// [[triggers]] configuration.
 	async scheduled(event, env, ctx) {
-		// A Cron Trigger can make requests to other endpoints on the Internet,
-		// publish to a Queue, query a D1 Database, and much more.
-		//
-		// We'll keep it simple and make an API call to a Cloudflare API:
-		let resp = await fetch('https://api.cloudflare.com/client/v4/ips');
-		let wasSuccessful = resp.ok ? 'success' : 'fail';
+    try {
+		const response = await fetch('https://pubsubhubbub.appspot.com/subscribe', {
+    	method: 'POST',
+    	headers: {
+      	'Content-Type': 'application/x-www-form-urlencoded',
+    	},
+    	body: new URLSearchParams({
+      	'hub.mode': 'subscribe',
+      	'hub.topic': 'https://www.youtube.com/xml/feeds/videos.xml?channel_id=UCw3BCSojo1NKBw0xvfKa4ZQ',
+      	'hub.callback': 'https://youtube-live-checker.stmarinadfw.workers.dev/api/webhook',
+      	'hub.lease_seconds': '864000',
+    	}),
+  	  });
 
-		// You could store this result in KV, write to a D1 Database, or publish to a Queue.
-		// In this template, we'll just log the result:
-		console.log(`trigger fired at ${event.cron}: ${wasSuccessful}`);
-	},
-};
+      if (!response.ok) {
+        console.error(`Failed to post to URL: ${response.status} ${response.statusText}`);
+      } else {
+        console.log("Successfully posted to URL.");
+      }
+    } catch (error) {
+      console.error("Error during scheduled POST request:", error);
+    }
+}};
